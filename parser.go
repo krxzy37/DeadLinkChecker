@@ -1,0 +1,52 @@
+package main
+
+import (
+	"fmt"
+	"net/http"
+	"net/url"
+
+	"github.com/PuerkitoBio/goquery"
+)
+
+func GetLinks(targetURL string) ([]string, error) {
+	var links []string
+
+	base, err := url.Parse(targetURL)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := http.Get(targetURL)
+	if err != nil {
+
+	}
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			return
+		}
+	}()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("status code %d, error", resp.StatusCode)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	doc.Find("a").Each(func(i int, s *goquery.Selection) {
+		href, exists := s.Attr("href")
+		if exists {
+
+			rel, err := url.Parse(href)
+			if err == nil {
+				abs := base.ResolveReference(rel)
+				links = append(links, abs.String())
+			}
+		}
+	})
+
+	return links, nil
+}
