@@ -9,7 +9,7 @@ import (
 )
 
 func GetLinks(targetURL string) ([]string, error) {
-	var links []string
+	var results []string
 
 	base, err := url.Parse(targetURL)
 	if err != nil {
@@ -18,7 +18,7 @@ func GetLinks(targetURL string) ([]string, error) {
 
 	resp, err := http.Get(targetURL)
 	if err != nil {
-
+		return nil, err
 	}
 	defer func() {
 		err := resp.Body.Close()
@@ -43,10 +43,11 @@ func GetLinks(targetURL string) ([]string, error) {
 			rel, err := url.Parse(href)
 			if err == nil {
 				abs := base.ResolveReference(rel)
-				links = append(links, abs.String())
+				results = append(results, abs.String())
+
 			}
 		}
 	})
 
-	return links, nil
+	return results, nil
 }
