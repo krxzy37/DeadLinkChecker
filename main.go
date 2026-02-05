@@ -7,24 +7,38 @@ import (
 
 func main() {
 
+	var userURL string
+
 	jobs := make(chan string, 100)
 	results := make(chan []string, 100)
 	visited := make(map[string]bool)
+
+	fmt.Println("Введите ссылку на сайт, который хотите обойти..")
+	fmt.Println("Пример \"https://www.youtube.com/\", \"https://www.grailed.com/\"")
+	fmt.Println("")
+
+	_, err := fmt.Scan(&userURL)
+	if err != nil {
+		panic(err)
+	}
+	visited[userURL] = true
 
 	for w := 1; w <= 3; w++ {
 		go worker(w, jobs, results)
 	}
 
-	startURL := "https://ezgif.com/"
-	visited[startURL] = true
+	/*
+		startURL := "https://ezgif.com/"
+		visited[startURL] = true
+	*/
 
-	parsedStart, err := url.Parse(startURL)
+	parsedStart, err := url.Parse(userURL)
 	if err != nil {
 		panic(err)
 	}
 	targetHost := parsedStart.Host
 
-	jobs <- startURL
+	jobs <- userURL
 
 	jobCount := 1
 
