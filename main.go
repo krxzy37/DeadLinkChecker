@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/url"
 )
 
 func main() {
@@ -10,6 +11,12 @@ func main() {
 	results := make(chan []string, 100)
 
 	startURL := "https://ezgif.com/"
+
+	parsedStart, err := url.Parse(startURL)
+	if err != nil {
+		panic(err)
+	}
+	targetHost := parsedStart.Host
 
 	visited := make(map[string]bool)
 
@@ -27,10 +34,22 @@ func main() {
 			if !visited[link] {
 				visited[link] = true
 
-				go func(l string) {
-					jobs <- l
-				}(link)
-				fmt.Println("-> Добавлена в очередь:", link)
+				parsedLink, err := url.Parse(link)
+				if err != nil {
+					continue
+				}
+
+				if parsedLink.Host == targetHost {
+
+					go func(l string) {
+						jobs <- l
+					}(link)
+
+					fmt.Println("-> В очередь:", link)
+
+				} else {
+
+				}
 			}
 		}
 		fmt.Printf("Всего уникальных ссылок в базе: %d\n", len(visited))

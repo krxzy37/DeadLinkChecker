@@ -43,6 +43,10 @@ func GetLinks(targetURL string) ([]string, error) {
 			rel, err := url.Parse(href)
 			if err == nil {
 				abs := base.ResolveReference(rel)
+				if abs.Scheme != "https" && abs.Scheme != "http" {
+					return
+				}
+
 				results = append(results, abs.String())
 
 			}
