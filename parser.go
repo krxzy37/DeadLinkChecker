@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -28,7 +29,15 @@ func GetLinks(targetURL string) ([]string, error) {
 	}()
 
 	if resp.StatusCode != 200 {
+		fmt.Println("Битая ссылка -> ", targetURL)
 		return nil, fmt.Errorf("status code %d, error", resp.StatusCode)
+
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+
+	if strings.Contains(contentType, "text/html") {
+		return nil, nil
 	}
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
