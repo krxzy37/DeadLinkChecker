@@ -9,8 +9,14 @@ func main() {
 
 	jobs := make(chan string, 100)
 	results := make(chan []string, 100)
+	visited := make(map[string]bool)
+
+	for w := 1; w <= 3; w++ {
+		go worker(w, jobs, results)
+	}
 
 	startURL := "https://ezgif.com/"
+	visited[startURL] = true
 
 	parsedStart, err := url.Parse(startURL)
 	if err != nil {
@@ -18,42 +24,36 @@ func main() {
 	}
 	targetHost := parsedStart.Host
 
-	visited := make(map[string]bool)
-
-	for w := 1; w <= 3; w++ {
-		go worker(w, jobs, results)
-	}
-
 	jobs <- startURL
 
-	for currentLinks := range results {
+	jobCount := 1
 
-		fmt.Printf("Было получено %d новых ссылок ---\n", len(currentLinks))
+	for jobCount > 0 {
+		currentLink := <-results
 
-		for _, link := range currentLinks {
+		jobCount--
+
+		for _, link := range currentLink {
 			if !visited[link] {
 				visited[link] = true
 
 				parsedLink, err := url.Parse(link)
 				if err != nil {
+					fmt.Println("Битая ссылка", link)
 					continue
 				}
-
 				if parsedLink.Host == targetHost {
+					jobCount++
 
 					go func(l string) {
 						jobs <- l
 					}(link)
-
-					fmt.Println("-> В очередь:", link)
-
-				} else {
-
 				}
 			}
 		}
-		fmt.Printf("Всего уникальных ссылок в базе: %d\n", len(visited))
 	}
+	fmt.Println("Работа программы завершена.....")
+	fmt.Printf("Всего найдено уникальных страниц: %d\n", len(visited))
 }
 func worker(id int, jobs <-chan string, results chan<- []string) {
 	for link := range jobs {
@@ -63,7 +63,7 @@ func worker(id int, jobs <-chan string, results chan<- []string) {
 
 		if err != nil {
 			fmt.Printf("[Worker %d] Ошибка на %s: %v\n", id, link, err)
-
+			results <- nil
 			continue
 		}
 		results <- foundLinks

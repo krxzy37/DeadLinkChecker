@@ -36,7 +36,7 @@ func GetLinks(targetURL string) ([]string, error) {
 
 	contentType := resp.Header.Get("Content-Type")
 
-	if strings.Contains(contentType, "text/html") {
+	if !strings.Contains(contentType, "text/html") {
 		return nil, nil
 	}
 
