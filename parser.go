@@ -53,6 +53,7 @@ func GetLinks(targetURL string) ([]string, error) {
 			if err == nil {
 
 				rel.RawQuery = ""
+				rel.Fragment = ""
 				abs := base.ResolveReference(rel)
 
 				if abs.Scheme != "https" && abs.Scheme != "http" {
