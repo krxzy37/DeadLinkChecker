@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -57,6 +58,11 @@ func GetLinks(targetURL string) ([]string, error) {
 				abs := base.ResolveReference(rel)
 
 				if abs.Scheme != "https" && abs.Scheme != "http" {
+					return
+				}
+				ext := strings.ToLower(path.Ext(abs.Path))
+				switch ext {
+				case ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".ico":
 					return
 				}
 
