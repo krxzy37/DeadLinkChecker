@@ -48,6 +48,7 @@ func main() {
 		jobCount--
 
 		for _, link := range currentLink {
+
 			if !visited[link] {
 				visited[link] = true
 
