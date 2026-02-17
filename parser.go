@@ -56,13 +56,15 @@ func GetLinks(targetURL string) ([]string, error) {
 				rel.RawQuery = ""
 				rel.Fragment = ""
 				abs := base.ResolveReference(rel)
+				ext := strings.ToLower(path.Ext(abs.Path)) // abs.Path берет путь из url, Path.ext находит последнюю точку strings.ToLower переносит все в нижний регистр
 
 				if abs.Scheme != "https" && abs.Scheme != "http" {
 					return
 				}
-				ext := strings.ToLower(path.Ext(abs.Path))
-				switch ext {
-				case ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".ico":
+				if isBadLink(abs.String()) {
+					return
+				}
+				if shouldSkipExtension(ext) {
 					return
 				}
 
@@ -73,4 +75,39 @@ func GetLinks(targetURL string) ([]string, error) {
 	})
 
 	return results, nil
+}
+
+func shouldSkipExtension(ext string) bool {
+	switch ext {
+	case ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".ico", ".bmp", ".tiff", ".mng", ".jxl", ".heic", ".avif":
+		return true
+	case ".mp4", ".mp3", ".avi", ".mkv", ".mov", ".wav", ".flac", ".webm", ".ogg", ".m4a":
+		return true
+	case ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".csv", ".rtf":
+		return true
+	case ".zip", ".rar", ".7z", ".tar", ".gz", ".exe", ".dmg", ".iso", ".apk", ".bin":
+		return true
+	case ".css", ".js", ".woff", ".woff2", ".ttf", ".eot":
+		return true
+	}
+	return false
+}
+
+func isBadLink(link string) bool {
+
+	segments := strings.Split(link, "/")
+	seen := make(map[string]bool)
+
+	for _, segment := range segments {
+		if segment == "" {
+			continue
+		}
+		segment = strings.ToLower(segment)
+
+		if seen[segment] {
+			return true
+		}
+		seen[segment] = true
+	}
+	return false
 }

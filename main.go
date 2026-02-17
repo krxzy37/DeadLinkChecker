@@ -23,7 +23,7 @@ func main() {
 	}
 	visited[userURL] = true
 
-	for w := 1; w <= 3; w++ {
+	for w := 1; w <= 10; w++ {
 		go worker(w, jobs, results)
 	}
 
