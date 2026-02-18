@@ -3,6 +3,7 @@
 
 .idea/
 *.iml
+DeadlinkChecker.iml
 
 db_data/
 postgres_data/
