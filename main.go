@@ -90,7 +90,7 @@ func worker(id int, jobs <-chan string, results chan<- []string, db *sql.DB) {
 			results <- nil
 			continue
 		}
-		_ = SaveResult(db, link, true, "")
+		_ = SaveResult(db, link, true, "none")
 		results <- foundLinks
 	}
 
