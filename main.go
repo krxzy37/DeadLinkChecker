@@ -2,73 +2,80 @@ package main
 
 import (
 	"fmt"
-	"net/url"
+	"log"
 )
 
 func main() {
 
-	var userURL string
-
-	jobs := make(chan string, 100)
-	results := make(chan []string, 100)
-	visited := make(map[string]bool)
-
-	fmt.Println("Введите ссылку на сайт, который хотите обойти..")
-	fmt.Println("Пример \"https://www.youtube.com/\", \"https://www.grailed.com/\"")
-	fmt.Println("")
-
-	_, err := fmt.Scan(&userURL)
+	db, err := ConnectDB()
 	if err != nil {
-		panic(err)
+		log.Fatalf("чето не вышло, %v", err)
 	}
-	visited[userURL] = true
+	defer db.Close()
 
-	for w := 1; w <= 10; w++ {
-		go worker(w, jobs, results)
-	}
-
+	fmt.Println("Успешное подкллючение")
 	/*
-		startURL := "https://ezgif.com/"
-		visited[startURL] = true
-	*/
+		var userURL string
 
-	parsedStart, err := url.Parse(userURL)
-	if err != nil {
-		panic(err)
-	}
-	targetHost := parsedStart.Host
+		jobs := make(chan string, 100)
+		results := make(chan []string, 100)
+		visited := make(map[string]bool)
 
-	jobs <- userURL
+		fmt.Println("Введите ссылку на сайт, который хотите обойти..")
+		fmt.Println("Пример \"https://www.youtube.com/\", \"https://www.grailed.com/\"")
+		fmt.Println("")
 
-	jobCount := 1
+		_, err := fmt.Scan(&userURL)
+		if err != nil {
+			panic(err)
+		}
+		visited[userURL] = true
 
-	for jobCount > 0 {
-		currentLink := <-results
+		for w := 1; w <= 10; w++ {
+			go worker(w, jobs, results)
+		}
 
-		jobCount--
 
-		for _, link := range currentLink {
 
-			if !visited[link] {
-				visited[link] = true
+		parsedStart, err := url.Parse(userURL)
+		if err != nil {
+			panic(err)
+		}
+		targetHost := parsedStart.Host
 
-				parsedLink, err := url.Parse(link)
-				if err != nil {
-					fmt.Println("Битая ссылка", link)
-					continue
-				}
-				if parsedLink.Host == targetHost {
-					jobCount++
+		jobs <- userURL
 
-					go func(l string) {
-						jobs <- l
-					}(link)
+		jobCount := 1
+
+		for jobCount > 0 {
+			currentLink := <-results
+
+			jobCount--
+
+			for _, link := range currentLink {
+
+				if !visited[link] {
+					visited[link] = true
+
+					parsedLink, err := url.Parse(link)
+					if err != nil {
+						fmt.Println("Битая ссылка", link)
+						continue
+					}
+					if parsedLink.Host == targetHost {
+						jobCount++
+
+						go func(l string) {
+							jobs <- l
+						}(link)
+					}
 				}
 			}
 		}
-	}
-	fmt.Println("Работа программы завершена.....")
-	fmt.Printf("Всего найдено уникальных страниц: %d\n", len(visited))
+		fmt.Println("Работа программы завершена.....")
+		fmt.Printf("Всего найдено уникальных страниц: %d\n", len(visited))
+
+	*/
 }
 func worker(id int, jobs <-chan string, results chan<- []string) {
 	for link := range jobs {

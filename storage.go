@@ -3,12 +3,20 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
+
+	"github.com/joho/godotenv"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func ConnectDB() (*sql.DB, error) {
+
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("файл .env не найдет")
+	}
 
 	dbUser := os.Getenv("DB_USER")
 	dbPass := os.Getenv("DB_PASSWORD")
@@ -18,7 +26,7 @@ func ConnectDB() (*sql.DB, error) {
 
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", dbUser, dbPass, dbHost, dbPort, dbName)
 
-	db, err := sql.Open("postgres", dsn)
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка инициализации дб: %v", err)
 	}
@@ -29,4 +37,19 @@ func ConnectDB() (*sql.DB, error) {
 	}
 
 	return db, nil
+}
+
+func SaveResult(db *sql.DB, link string, isBroken bool, errMsg string) error {
+	query := `
+				INSERT INTO visited_links (url, is_broken, error_msg)
+				VALUES ($1, $2, $3)
+				ON CONFLICT (url) DO NOTHING;
+				`
+
+	_, err := db.Exec(query, link, isBroken, errMsg)
+	if err != nil {
+		return fmt.Errorf("ошибка записи в бд: %w", err)
+	}
+
+	return nil
 }
