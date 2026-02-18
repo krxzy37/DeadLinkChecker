@@ -1,0 +1,18 @@
+version: '3.8' # Версия синтаксиса этого файла
+
+services:
+  db: # Мы придумываем название нашему сервису (просто "db")
+    image: postgres:15-alpine # Образ, который Docker скачает (15 версия, alpine означает "очень легкий Linux")
+    container_name: deadlink_postgres # Как контейнер будет называться в интерфейсе Docker
+    restart: always # Если БД упадет или ты перезагрузишь ПК, Docker сам её включит
+    environment: # Это переменные (логин и пароль), которые Postgres прочтет при самом первом запуске
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: crawler_db
+    ports: # ПРОБРОС ПОРТОВ (Слева твой ПК : Справа Контейнер)
+      - "5432:5432" # 5432 - это стандартный порт Postgres. Мы говорим: направляй всё с 5432 порта моего ПК внутрь контейнера
+    volumes: # Сохранение данных (Тома)
+      - pgdata:/var/lib/postgresql/data # Левая часть: название тома. Правая: папка внутри Linux-контейнера, где Postgres хранит файлы.
+
+volumes:
+  pgdata: # Объявляем сам том, чтобы Docker его создал у тебя на диске

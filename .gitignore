@@ -1,0 +1,15 @@
+.env
+*.local
+
+.idea/
+*.iml
+
+db_data/
+postgres_data/
+
+/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
