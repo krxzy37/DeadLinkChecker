@@ -8,14 +8,15 @@ import (
 	"strings"
 )
 
-func CreateFolder() {
+func createFolder() {
+
 	err := os.MkdirAll("obsidian_graph", 0755)
 	if err != nil {
 		fmt.Printf("папка не была создана: %v\n", err)
 	}
 }
 
-func ClearName(url string) string {
+func clearName(url string) string {
 
 	clean := strings.ReplaceAll(url, "https://", "")
 
@@ -25,6 +26,8 @@ func ClearName(url string) string {
 }
 
 func ReadFromDb(db *sql.DB) error {
+
+	createFolder()
 
 	rows, err := db.Query("SELECT url, connected_links FROM visited_links")
 	if err != nil {
@@ -47,7 +50,7 @@ func ReadFromDb(db *sql.DB) error {
 			fmt.Printf("error unMarshal: %v", err)
 		}
 
-		filename := "obsidian_graph/" + ClearName(sourceUrl) + ".md"
+		filename := "obsidian_graph/" + clearName(sourceUrl) + ".md"
 
 		file, err := os.Create(filename)
 		if err != nil {
@@ -62,7 +65,7 @@ func ReadFromDb(db *sql.DB) error {
 
 		for _, link := range childLinks {
 
-			targetName := ClearName(link)
+			targetName := clearName(link)
 
 			fmt.Printf("[[%s]]\n", targetName)
 		}

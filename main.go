@@ -74,6 +74,12 @@ func main() {
 			}
 		}
 	}
+
+	err = ReadFromDb(db)
+	if err != nil {
+		fmt.Printf("ошибка создания графа для обсидиана: %v\n", err)
+	}
+
 	fmt.Println("Работа программы завершена.....")
 	fmt.Printf("Всего найдено уникальных страниц: %d\n", len(visited))
 
