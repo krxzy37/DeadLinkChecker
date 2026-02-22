@@ -86,11 +86,11 @@ func worker(id int, jobs <-chan string, results chan<- []string, db *sql.DB) {
 
 		if err != nil {
 			fmt.Printf("[Worker %d] Ошибка на %s: %v\n", id, link, err)
-			_ = SaveResult(db, link, true, err.Error())
+			_ = SaveResult(db, link, true, err.Error(), nil)
 			results <- nil
 			continue
 		}
-		_ = SaveResult(db, link, true, "none")
+		_ = SaveResult(db, link, false, "none", foundLinks)
 		results <- foundLinks
 	}
 

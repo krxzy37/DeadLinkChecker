@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -39,14 +40,20 @@ func ConnectDB() (*sql.DB, error) {
 	return db, nil
 }
 
-func SaveResult(db *sql.DB, link string, isBroken bool, errMsg string) error {
+func SaveResult(db *sql.DB, link string, isBroken bool, errMsg string, connected []string) error {
+
+	jsonConnected, erd := json.Marshal(connected)
+	if erd != nil {
+		return erd
+	}
+
 	query := `
-				INSERT INTO visited_links (url, is_broken, error_msg)
-				VALUES ($1, $2, $3)
+				INSERT INTO visited_links (url, is_broken, error_msg, connected_links)
+				VALUES ($1, $2, $3, $4)
 				ON CONFLICT (url) DO NOTHING;
 				`
 
-	_, err := db.Exec(query, link, isBroken, errMsg)
+	_, err := db.Exec(query, link, isBroken, errMsg, jsonConnected)
 	if err != nil {
 		return fmt.Errorf("ошибка записи в бд: %w", err)
 	}
