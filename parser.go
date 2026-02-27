@@ -61,6 +61,9 @@ func GetLinks(targetURL string) ([]string, error) {
 				if abs.Scheme != "https" && abs.Scheme != "http" {
 					return
 				}
+				if isTooDeep(abs.String()) {
+					return
+				}
 				if isBadLink(abs.String()) {
 					return
 				}
@@ -109,5 +112,18 @@ func isBadLink(link string) bool {
 		}
 		seen[segment] = true
 	}
+	return false
+}
+
+func isTooDeep(link string) bool {
+
+	segments := strings.Split(link, "/")
+
+	depth := len(segments) - 1
+
+	if depth > 5 {
+		return true
+	}
+
 	return false
 }
