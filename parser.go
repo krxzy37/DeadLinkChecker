@@ -121,7 +121,7 @@ func isTooDeep(link string) bool {
 
 	depth := len(segments) - 1
 
-	if depth > 5 {
+	if depth > 6 {
 		return true
 	}
 

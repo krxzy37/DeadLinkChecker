@@ -2,9 +2,16 @@ package main
 
 import (
 	"database/sql"
+	"encoding/csv"
 	"fmt"
 	"net/url"
+	"os"
 )
+
+type linkResult struct {
+	URL      string
+	isBroken string
+}
 
 func main() {
 
@@ -75,10 +82,8 @@ func main() {
 		}
 	}
 
-	err = ReadFromDb(db)
-	if err != nil {
-		fmt.Printf("ошибка создания графа для обсидиана: %v\n", err)
-	}
+	//err = ReadFromDb(db)
+	//if err != nil {  fmt.Printf("ошибка создания графа для обсидиана: %v\n", err) }
 
 	fmt.Println("Работа программы завершена.....")
 	fmt.Printf("Всего найдено уникальных страниц: %d\n", len(visited))
@@ -100,4 +105,35 @@ func worker(id int, jobs <-chan string, results chan<- []string, db *sql.DB) {
 		results <- foundLinks
 	}
 
+}
+
+func writeToCsv(results []linkResult) error {
+
+	fileName := "data.csv"
+
+	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0777)
+	if err != nil {
+		fmt.Println("ошибка записи csv файла" + err.Error())
+		return err
+	}
+	defer func() {
+		err = file.Close()
+		if err != nil {
+			return
+		}
+	}()
+
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+
+	for _, res := range results {
+		row := []string{res.URL, res.isBroken}
+
+		err := writer.Write(row)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

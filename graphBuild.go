@@ -67,9 +67,9 @@ func ReadFromDb(db *sql.DB) error {
 
 			targetName := clearName(link)
 
-			fmt.Printf("[[%s]]\n", targetName)
+			fmt.Fprintf(file, "- [[%s]]\n", targetName)
 		}
-
+		file.Close()
 	}
 
 	return nil
