@@ -18,6 +18,7 @@ var finalData []linkResult
 func main() {
 
 	var userURL string
+	var workers int
 
 	db, err := ConnectDB()
 	if err != nil {
@@ -38,13 +39,20 @@ func main() {
 	fmt.Println("Пример \"https://www.youtube.com/\", \"https://www.grailed.com/\"")
 	fmt.Println("")
 
-	_, errr := fmt.Scan(&userURL)
-	if errr != nil {
+	_, err = fmt.Scan(&userURL)
+	if err != nil {
 		panic(err)
 	}
+
+	fmt.Println("Введите скорость обхода сайта (от 3 до 10)")
+	_, err = fmt.Scan(&workers)
+	if err != nil {
+		panic(err)
+	}
+
 	visited[userURL] = true
 
-	for w := 1; w <= 10; w++ {
+	for w := 1; w <= workers; w++ {
 		go worker(w, jobs, results, db)
 	}
 
