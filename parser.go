@@ -12,13 +12,22 @@ import (
 
 func GetLinks(targetURL string) ([]string, error) {
 	var results []string
+	client := &http.Client{}
 
 	base, err := url.Parse(targetURL)
 	if err != nil {
 		return nil, err
 	}
+	req, err := http.NewRequest("GET", targetURL, nil)
+	if err != nil {
+		return nil, err
+	}
 
-	resp, err := http.Get(targetURL)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7")
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
