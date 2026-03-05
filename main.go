@@ -13,6 +13,8 @@ type linkResult struct {
 	isBroken string
 }
 
+var finalData []linkResult
+
 func main() {
 
 	var userURL string
@@ -84,6 +86,11 @@ func main() {
 
 	//err = ReadFromDb(db)
 	//if err != nil {  fmt.Printf("ошибка создания графа для обсидиана: %v\n", err) }
+	err = writeToCsv(finalData)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
 	fmt.Println("Работа программы завершена.....")
 	fmt.Printf("Всего найдено уникальных страниц: %d\n", len(visited))
@@ -97,10 +104,13 @@ func worker(id int, jobs <-chan string, results chan<- []string, db *sql.DB) {
 
 		if err != nil {
 			fmt.Printf("[Worker %d] Ошибка на %s: %v\n", id, link, err)
+			finalData = append(finalData, linkResult{URL: link, isBroken: "Error: " + err.Error()})
 			_ = SaveResult(db, link, true, err.Error(), nil)
 			results <- nil
 			continue
 		}
+		finalData = append(finalData, linkResult{URL: link, isBroken: "OK"})
+
 		_ = SaveResult(db, link, false, "none", foundLinks)
 		results <- foundLinks
 	}
