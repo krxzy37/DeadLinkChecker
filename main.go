@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/csv"
 	"fmt"
 	"net/url"
@@ -20,17 +19,6 @@ func main() {
 	var userURL string
 	var workers int
 
-	db, err := ConnectDB()
-	if err != nil {
-		fmt.Println("Ошибка БД: ", err)
-	}
-	defer func() {
-		err := db.Close()
-		if err != nil {
-			panic(err)
-		}
-	}()
-
 	jobs := make(chan string, 100)
 	results := make(chan []string, 100)
 	visited := make(map[string]bool)
@@ -39,7 +27,7 @@ func main() {
 	fmt.Println("Пример \"https://www.youtube.com/\", \"https://www.grailed.com/\"")
 	fmt.Println("")
 
-	_, err = fmt.Scan(&userURL)
+	_, err := fmt.Scan(&userURL)
 	if err != nil {
 		panic(err)
 	}
@@ -53,7 +41,7 @@ func main() {
 	visited[userURL] = true
 
 	for w := 1; w <= workers; w++ {
-		go worker(w, jobs, results, db)
+		go worker(w, jobs, results)
 	}
 
 	parsedStart, err := url.Parse(userURL)
@@ -104,7 +92,7 @@ func main() {
 	fmt.Printf("Всего найдено уникальных страниц: %d\n", len(visited))
 
 }
-func worker(id int, jobs <-chan string, results chan<- []string, db *sql.DB) {
+func worker(id int, jobs <-chan string, results chan<- []string) {
 	for link := range jobs {
 		fmt.Printf("[Worker %d] Сканирую: %s\n", id, link)
 
@@ -113,13 +101,11 @@ func worker(id int, jobs <-chan string, results chan<- []string, db *sql.DB) {
 		if err != nil {
 			fmt.Printf("[Worker %d] Ошибка на %s: %v\n", id, link, err)
 			finalData = append(finalData, linkResult{URL: link, isBroken: "Error: " + err.Error()})
-			_ = SaveResult(db, link, true, err.Error(), nil)
 			results <- nil
 			continue
 		}
 		finalData = append(finalData, linkResult{URL: link, isBroken: "OK"})
 
-		_ = SaveResult(db, link, false, "none", foundLinks)
 		results <- foundLinks
 	}
 
