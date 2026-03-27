@@ -32,7 +32,7 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Println("Введите скорость обхода сайта (от 3 до 10)")
+	fmt.Println("Введите скорость обхода сайта (от 3 до 50)")
 	_, err = fmt.Scan(&workers)
 	if err != nil {
 		panic(err)
@@ -129,6 +129,7 @@ func writeToCsv(results []linkResult) error {
 
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
+	writer.Comma = ';'
 
 	for _, res := range results {
 		row := []string{res.URL, res.isBroken}
@@ -138,6 +139,8 @@ func writeToCsv(results []linkResult) error {
 			return err
 		}
 	}
+
+	fmt.Println("Данные успешно записаны в файл...")
 
 	return nil
 }
