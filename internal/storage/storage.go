@@ -37,3 +37,13 @@ func (s *Storage) Save(ctx context.Context, p *scrapper.Page) error {
 
 	return nil
 }
+
+func (s *Storage) ClearDB() error {
+	q := `DELETE FROM table;`
+
+	if _, err := s.db.Exec(q); err != nil {
+		return fmt.Errorf("Delete table error: %w", err)
+	}
+
+	return nil
+}
