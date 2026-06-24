@@ -29,7 +29,7 @@ func New(path string) (*Storage, error) {
 
 func (s *Storage) Save(ctx context.Context, p *scrapper.Page) error {
 
-	q := `INSERT INTO table (url, isDead) VALUES (?, ?)`
+	q := `INSERT INTO pages (url, isDead) VALUES (?, ?)`
 
 	if _, err := s.db.ExecContext(ctx, q, p.URL, p.IsDead); err != nil {
 		return fmt.Errorf("cant save page: %w", err)
@@ -39,10 +39,21 @@ func (s *Storage) Save(ctx context.Context, p *scrapper.Page) error {
 }
 
 func (s *Storage) ClearDB() error {
-	q := `DELETE FROM table;`
+	q := `DELETE FROM pages;`
 
 	if _, err := s.db.Exec(q); err != nil {
 		return fmt.Errorf("Delete table error: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Storage) Init() error {
+
+	q := `CREATE TABLE IF NOT EXISTS pages (url TEXT, is_dead BOOLEAN)`
+
+	if _, err := s.db.Exec(q); err != nil {
+		return fmt.Errorf("Cant create table: %w", err)
 	}
 
 	return nil
