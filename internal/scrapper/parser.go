@@ -10,6 +10,11 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
+type Page struct {
+	URL    string
+	IsDead bool
+}
+
 func GetLinks(targetURL string) ([]string, error) {
 	var results []string
 	client := &http.Client{}
