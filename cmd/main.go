@@ -1,6 +1,7 @@
 package main
 
 import (
+	"DeadLinkChecker/internal/scrapper"
 	"encoding/csv"
 	"fmt"
 	"net/url"
@@ -96,7 +97,7 @@ func worker(id int, jobs <-chan string, results chan<- []string) {
 	for link := range jobs {
 		fmt.Printf("[Worker %d] Сканирую: %s\n", id, link)
 
-		foundLinks, err := GetLinks(link)
+		foundLinks, err := scrapper.GetLinks(link)
 
 		if err != nil {
 			fmt.Printf("[Worker %d] Ошибка на %s: %v\n", id, link, err)
