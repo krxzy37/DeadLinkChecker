@@ -17,13 +17,6 @@ const (
 	sqliteStoragePath = "data/sqlite/storage.db"
 )
 
-/*
-type LinkResult struct {
-	URL      string
-	IsBroken string
-}
-*/
-
 var finalData []scrapper.Page
 
 func main() {
@@ -101,7 +94,7 @@ func main() {
 		}
 	}
 
-	err = writeToCsv(finalData)
+	err = writeToCsv(finalData, userURL)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -132,14 +125,14 @@ func worker(id int, jobs <-chan string, results chan<- []string, db *storage.Sto
 
 }
 
-func writeToCsv(results []scrapper.Page) error {
+func writeToCsv(results []scrapper.Page, fileName string) error {
 
-	fileName := "data.csv"
+	fileName = fileName + ".csv"
 
 	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0777)
 	if err != nil {
-		fmt.Println("ошибка записи csv файла" + err.Error())
-		return err
+		return fmt.Errorf("cant open or create csv file: %w", err)
+
 	}
 	defer func() {
 		err = file.Close()
@@ -152,7 +145,7 @@ func writeToCsv(results []scrapper.Page) error {
 	defer writer.Flush()
 
 	for _, res := range results {
-		row := []string{res.URL, strconv.FormatBool(res.IsDead)}
+		row := []string{res.URL, ";", strconv.FormatBool(res.IsDead)}
 
 		err := writer.Write(row)
 		if err != nil {
