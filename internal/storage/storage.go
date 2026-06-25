@@ -2,7 +2,6 @@ package storage
 
 import (
 	"DeadLinkChecker/internal/scrapper"
-	"context"
 	"database/sql"
 	"fmt"
 
@@ -17,7 +16,7 @@ func New(path string) (*Storage, error) {
 
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
-		panic("db open error")
+		return nil, fmt.Errorf("sql open error: %w", err)
 	}
 	if err = db.Ping(); err != nil {
 		return nil, fmt.Errorf("can't connect db: %w", err)
@@ -27,11 +26,11 @@ func New(path string) (*Storage, error) {
 
 }
 
-func (s *Storage) Save(ctx context.Context, p *scrapper.Page) error {
+func (s *Storage) Save(p scrapper.Page) error {
 
 	q := `INSERT INTO pages (url, isDead) VALUES (?, ?)`
 
-	if _, err := s.db.ExecContext(ctx, q, p.URL, p.IsDead); err != nil {
+	if _, err := s.db.Exec(q, p.URL, p.IsDead); err != nil {
 		return fmt.Errorf("cant save page: %w", err)
 	}
 
@@ -50,11 +49,19 @@ func (s *Storage) ClearDB() error {
 
 func (s *Storage) Init() error {
 
-	q := `CREATE TABLE IF NOT EXISTS pages (url TEXT, is_dead BOOLEAN)`
+	q := `CREATE TABLE IF NOT EXISTS pages (
+									id INTEGER PRIMARY KEY AUTOINCREMENT,
+									url TEXT NOT NULL, 
+									is_dead BOOLEAN NOT NULL DEFAULT 0 CHECK (is_dead IN (0, 1))
+									)`
 
 	if _, err := s.db.Exec(q); err != nil {
 		return fmt.Errorf("Cant create table: %w", err)
 	}
 
 	return nil
+}
+
+func (s *Storage) Close() {
+	s.db.Close()
 }

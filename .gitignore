@@ -1,6 +1,7 @@
 .env
 *.local
 
+.data/
 .idea/
 *.iml
 DeadlinkChecker.iml
