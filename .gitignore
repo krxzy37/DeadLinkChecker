@@ -6,6 +6,7 @@
 *.iml
 DeadlinkChecker.iml
 
+csv/
 db_data/
 postgres_data/
 obsidian_graph/
@@ -16,3 +17,4 @@ obsidian_graph/
 *.dll
 *.so
 *.dylib
+

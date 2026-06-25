@@ -3,6 +3,7 @@ package main
 import (
 	"DeadLinkChecker/internal/scrapper"
 	"DeadLinkChecker/internal/storage"
+	"path/filepath"
 
 	"encoding/csv"
 	"fmt"
@@ -127,9 +128,21 @@ func worker(id int, jobs <-chan string, results chan<- []string, db *storage.Sto
 
 func writeToCsv(results []scrapper.Page, fileName string) error {
 
+	dirPath := "csv/"
+
+	tempLink, err := url.Parse(fileName)
+	if err != nil {
+		return fmt.Errorf("url parse err: %w", err)
+	}
+	fileName = tempLink.Host
 	fileName = fileName + ".csv"
 
-	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0777)
+	if err := os.MkdirAll(dirPath, 0755); err != nil {
+		return fmt.Errorf("cant create or open csv directory: %w", err)
+	}
+	fullPath := filepath.Join(dirPath, fileName)
+
+	file, err := os.OpenFile(fullPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0777)
 	if err != nil {
 		return fmt.Errorf("cant open or create csv file: %w", err)
 
@@ -144,8 +157,13 @@ func writeToCsv(results []scrapper.Page, fileName string) error {
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
 
+	headerRow := []string{"Link;", "IsDead"}
+	if err = writer.Write(headerRow); err != nil {
+		return fmt.Errorf("cant write header row in a csv: %w", err)
+	}
+
 	for _, res := range results {
-		row := []string{res.URL, ";", strconv.FormatBool(res.IsDead)}
+		row := []string{res.URL + ";", strconv.FormatBool(res.IsDead)}
 
 		err := writer.Write(row)
 		if err != nil {
