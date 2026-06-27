@@ -4,6 +4,7 @@ import (
 	"DeadLinkChecker/internal/scrapper"
 	"database/sql"
 	"fmt"
+	"net/url"
 
 	_ "modernc.org/sqlite"
 )
@@ -64,4 +65,52 @@ func (s *Storage) Init() error {
 
 func (s *Storage) Close() {
 	s.db.Close()
+}
+
+func (s *Storage) GetPages(primalLink string) ([]scrapper.Page, error) {
+
+	Pages := []scrapper.Page{}
+
+	base, err := url.Parse(primalLink)
+	if err != nil {
+		return nil, fmt.Errorf("cant parse primal link: %w", err)
+	}
+
+	pattern := "%" + base.Host + "%"
+
+	rows, err := s.db.Query("SELECT url, is_dead FROM pages WHERE url LIKE ?", pattern)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var page scrapper.Page
+
+		if err = rows.Scan(&page.URL, &page.IsDead); err != nil {
+			return nil, fmt.Errorf("cant add in slice page from db: %w", err)
+		}
+		Pages = append(Pages, page)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error while iteration: %w", err)
+	}
+
+	return Pages, nil
+
+}
+
+func (s *Storage) ChekPage(chekLink string) (bool, error) {
+
+	pattern := "%" + chekLink + "%"
+	var exists bool
+
+	q := `SELECT EXISTS(SELECT 1 FROM pages WHERE url LIKE ?)`
+
+	if err := s.db.QueryRow(q, pattern).Scan(&exists); err != nil {
+		return false, fmt.Errorf("cant find link: %w", err)
+	}
+
+	return exists, nil
 }

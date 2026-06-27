@@ -4,6 +4,7 @@ import (
 	"DeadLinkChecker/internal/scrapper"
 	"DeadLinkChecker/internal/storage"
 	"context"
+
 	"path/filepath"
 	"sync"
 
@@ -94,7 +95,7 @@ func main() {
 		}
 	}
 
-	err = writeToCsv(finalData, userURL)
+	err = writeToCsv(s, userURL)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -118,7 +119,7 @@ func worker(ctx context.Context, m *sync.Mutex, id int, jobs <-chan string, resu
 		if err != nil {
 			fmt.Printf("[Worker %d] Ошибка на %s: %v\n", id, link, err)
 			m.Lock()
-			finalData = append(finalData, scrapper.Page{URL: link, IsDead: true})
+
 			db.Save(scrapper.Page{URL: link, IsDead: true})
 			m.Unlock()
 			results <- foundLinks
@@ -126,7 +127,6 @@ func worker(ctx context.Context, m *sync.Mutex, id int, jobs <-chan string, resu
 			continue
 		}
 		m.Lock()
-		finalData = append(finalData, scrapper.Page{URL: link, IsDead: false})
 		db.Save(scrapper.Page{URL: link, IsDead: false})
 		m.Unlock()
 
@@ -136,7 +136,13 @@ func worker(ctx context.Context, m *sync.Mutex, id int, jobs <-chan string, resu
 
 }
 
-func writeToCsv(results []scrapper.Page, fileName string) error {
+func writeToCsv(db *storage.Storage, fileName string) error {
+
+	results, err := db.GetPages(fileName)
+	if err != nil {
+		fmt.Printf("error GetPages: %v", err)
+		return nil
+	}
 
 	dirPath := "csv/"
 
