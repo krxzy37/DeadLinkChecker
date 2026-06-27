@@ -5,10 +5,29 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
+
+type RateLimiter struct {
+	M         sync.Mutex
+	RateLimit int
+	Remaining int
+	ResetAt   time.Time
+}
+
+func NewRateLimiter(remaining int, rateLimit int, resetAt time.Time) *RateLimiter {
+
+	return &RateLimiter{
+		RateLimit: rateLimit,
+		Remaining: remaining,
+		ResetAt:   resetAt,
+	}
+}
 
 type Page struct {
 	URL    string
@@ -16,6 +35,7 @@ type Page struct {
 }
 
 func GetLinks(targetURL string) ([]string, error) {
+
 	var results []string
 	client := &http.Client{}
 
@@ -36,12 +56,7 @@ func GetLinks(targetURL string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		err := resp.Body.Close()
-		if err != nil {
-			return
-		}
-	}()
+	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		fmt.Println("Битая ссылка -> ", targetURL)
@@ -140,4 +155,71 @@ func isTooDeep(link string) bool {
 	}
 
 	return false
+}
+
+func CheckRateLimits(link string) (string, string, time.Time, error) {
+
+	var rateLimit string
+	var rateRemaining string
+	var rateReset string
+
+	resp, err := http.Get(link)
+	if err != nil {
+		return "", "", time.Time{}, fmt.Errorf("cant use GET request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	possibleLimitKeys := []string{
+		"X-RateLimit-Limit",
+		"X-Rate-Limit-Limit",
+		"RateLimit-Limit",
+	}
+
+	for _, key := range possibleLimitKeys {
+		rateLimit = resp.Header.Get(key)
+
+		if rateLimit != "" {
+			continue
+		}
+		return "", "", time.Time{}, fmt.Errorf("header is empty or undefined: %w", err)
+	}
+
+	possibleRemaningKeys := []string{
+		"X-RateLimit-Remaining",
+		"X-Rate-Limit-Remaining",
+		"RateLimit-Remaining",
+	}
+
+	for _, key := range possibleRemaningKeys {
+		rateRemaining = resp.Header.Get(key)
+
+		if rateLimit != "" {
+			continue
+		}
+		return "", "", time.Time{}, fmt.Errorf("header is empty or undefined: %w", err)
+	}
+
+	possibleResetKeys := []string{
+		"X-RateLimit-Reset",
+		"X-Rate-Limit-Reset",
+		"RateLimit-Reset",
+	}
+
+	for _, key := range possibleResetKeys {
+		rateReset = resp.Header.Get(key)
+
+		if rateLimit != "" {
+			continue
+		}
+		return "", "", time.Time{}, fmt.Errorf("header is empty or undefined: %w", err)
+	}
+
+	resetSec, err := strconv.ParseInt(rateReset, 10, 64)
+	if err != nil {
+		return "", "", time.Time{}, fmt.Errorf("cant parse header ratelimit reset: %w", err)
+	}
+
+	resetTime := time.Unix(resetSec, 0)
+
+	return rateLimit, rateRemaining, resetTime, nil
 }

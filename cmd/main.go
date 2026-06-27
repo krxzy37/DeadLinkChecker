@@ -4,6 +4,7 @@ import (
 	"DeadLinkChecker/internal/scrapper"
 	"DeadLinkChecker/internal/storage"
 	"path/filepath"
+	"time"
 
 	"encoding/csv"
 	"fmt"
@@ -23,7 +24,6 @@ var finalData []scrapper.Page
 func main() {
 
 	var userURL string
-	var workers int
 	jobs := make(chan string, 100)
 	results := make(chan []string, 100)
 	visited := make(map[string]bool)
@@ -47,16 +47,27 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Println("Введите скорость обхода сайта (от 3 до 10)")
-	_, err = fmt.Scan(&workers)
+	limit, remaining, resetTime, err := scrapper.CheckRateLimits(userURL)
 	if err != nil {
 		panic(err)
 	}
+	fmt.Printf("Лимит запросов таков: %v", limit)
+
+	intRemaining, err := strconv.Atoi(remaining)
+	if err != nil {
+		println("cant convert atoi: %v", err)
+	}
+	intLimit, err := strconv.Atoi(limit)
+	if err != nil {
+		println("cant convert atoi: %v", err)
+	}
+
+	rateLimiter := scrapper.NewRateLimiter(intRemaining, intLimit, resetTime)
 
 	visited[userURL] = true
 
-	for w := 1; w <= workers; w++ {
-		go worker(w, jobs, results, s)
+	for w := 1; w <= 50; w++ {
+		go worker(w, jobs, results, s, rateLimiter)
 	}
 
 	parsedStart, err := url.Parse(userURL)
@@ -105,23 +116,46 @@ func main() {
 	fmt.Printf("Всего найдено уникальных страниц: %d\n", len(visited))
 
 }
-func worker(id int, jobs <-chan string, results chan<- []string, db *storage.Storage) {
+func worker(id int, jobs <-chan string, results chan<- []string, db *storage.Storage, rL *scrapper.RateLimiter) {
+
+	remain := rL.Remaining
+
+	sleepTime := time.Until(rL.ResetAt)
+	sleepTimeFloat := sleepTime.Seconds()
+	sleepTimeSeconds := int(sleepTimeFloat)
+
 	for link := range jobs {
-		fmt.Printf("[Worker %d] Сканирую: %s\n", id, link)
+		switch {
 
-		foundLinks, err := scrapper.GetLinks(link)
+		case remain == 0:
+			time.Sleep(time.Duration(sleepTimeSeconds))
+			time.Sleep(500 * time.Millisecond)
+			remain = remain + rL.RateLimit
 
-		if err != nil {
-			fmt.Printf("[Worker %d] Ошибка на %s: %v\n", id, link, err)
-			finalData = append(finalData, scrapper.Page{URL: link, IsDead: true})
-			db.Save(scrapper.Page{URL: link, IsDead: true})
-			results <- nil
-			continue
+		default:
+			fmt.Printf("[Worker %d] Сканирую: %s\n", id, link)
+
+			rL.M.Lock()
+			foundLinks, err := scrapper.GetLinks(link)
+			remain--
+			rL.M.Unlock()
+
+			if err != nil {
+				fmt.Printf("[Worker %d] Ошибка на %s: %v\n", id, link, err)
+				finalData = append(finalData, scrapper.Page{URL: link, IsDead: true})
+				rL.M.Lock()
+				db.Save(scrapper.Page{URL: link, IsDead: true})
+				results <- nil
+				rL.M.Unlock()
+				continue
+			}
+			rL.M.Lock()
+			finalData = append(finalData, scrapper.Page{URL: link, IsDead: false})
+			db.Save(scrapper.Page{URL: link, IsDead: false})
+			rL.M.Unlock()
+
+			results <- foundLinks
 		}
-		finalData = append(finalData, scrapper.Page{URL: link, IsDead: false})
-		db.Save(scrapper.Page{URL: link, IsDead: false})
-
-		results <- foundLinks
 	}
 
 }
