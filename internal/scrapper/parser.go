@@ -27,24 +27,24 @@ func NewRateLimiter() *RateLimiter {
 }
 
 type Page struct {
-	URL    string
-	IsDead bool
+	URL        string
+	StatusCode int
 }
 
-func GetLinks(targetURL string) ([]string, error) {
+func GetLinks(targetURL string) ([]string, int, error) {
 
 	var results []string
 	client := &http.Client{
-		Timeout: 15 * time.Second,
+		Timeout: 45 * time.Second,
 	}
 
 	base, err := url.Parse(targetURL)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	req, err := http.NewRequest("GET", targetURL, nil)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
@@ -53,25 +53,34 @@ func GetLinks(targetURL string) ([]string, error) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		fmt.Println("Битая ссылка -> ", targetURL)
-		return nil, fmt.Errorf("status code %d, error", resp.StatusCode)
+
+		switch {
+		case resp.StatusCode == 429:
+			return nil, 429, nil
+		case resp.StatusCode == 404:
+			fmt.Println("Битая ссылка -> ", targetURL)
+			return nil, 404, fmt.Errorf("dead link, status code 404: %w", err)
+		default:
+			fmt.Printf("Unknown error on link -> %v", targetURL)
+			return nil, resp.StatusCode, fmt.Errorf("status code %d, error: %w", resp.StatusCode, err)
+		}
 
 	}
 
 	contentType := resp.Header.Get("Content-Type")
 
 	if !strings.Contains(contentType, "text/html") {
-		return nil, nil
+		return nil, 0, fmt.Errorf("Response dont contains a text or html: %w", err)
 	}
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	doc.Find("a").Each(func(i int, s *goquery.Selection) {
@@ -105,7 +114,7 @@ func GetLinks(targetURL string) ([]string, error) {
 		}
 	})
 
-	return results, nil
+	return results, 200, nil
 }
 
 func shouldSkipExtension(ext string) bool {
@@ -149,9 +158,32 @@ func isTooDeep(link string) bool {
 
 	depth := len(segments) - 1
 
-	if depth > 6 {
+	if depth > 7 {
 		return true
 	}
 
 	return false
+}
+
+func TryAgainExp(targetLink string, maxRetries int, o func(string) ([]string, int, error)) ([]string, int, error) {
+
+	delay := 2 * time.Second
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+
+		links, statusCode, err := o(targetLink)
+		if err == nil {
+			return links, statusCode, nil
+		}
+
+		if attempt == maxRetries-1 {
+			return nil, 504, fmt.Errorf("out of tries: %w", err)
+		}
+
+		time.Sleep(delay)
+		delay *= 2
+
+	}
+
+	return nil, 404, fmt.Errorf("Out of tries: (%d)", maxRetries)
 }

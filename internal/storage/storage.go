@@ -29,9 +29,9 @@ func New(path string) (*Storage, error) {
 
 func (s *Storage) Save(p scrapper.Page) error {
 
-	q := `INSERT INTO pages (url, is_dead) VALUES (?, ?)`
+	q := `INSERT INTO pages (url, status_code) VALUES (?, ?)`
 
-	if _, err := s.db.Exec(q, p.URL, p.IsDead); err != nil {
+	if _, err := s.db.Exec(q, p.URL, p.StatusCode); err != nil {
 		return fmt.Errorf("cant save page: %w", err)
 	}
 
@@ -53,7 +53,7 @@ func (s *Storage) Init() error {
 	q := `CREATE TABLE IF NOT EXISTS pages (
 									id INTEGER PRIMARY KEY AUTOINCREMENT,
 									url TEXT NOT NULL, 
-									is_dead BOOLEAN NOT NULL DEFAULT 0 CHECK (is_dead IN (0, 1))
+									status_code INTEGER
 									)`
 
 	if _, err := s.db.Exec(q); err != nil {
@@ -78,7 +78,7 @@ func (s *Storage) GetPages(primalLink string) ([]scrapper.Page, error) {
 
 	pattern := "%" + base.Host + "%"
 
-	rows, err := s.db.Query("SELECT url, is_dead FROM pages WHERE url LIKE ?", pattern)
+	rows, err := s.db.Query("SELECT url, status_code FROM pages WHERE url LIKE ?", pattern)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (s *Storage) GetPages(primalLink string) ([]scrapper.Page, error) {
 	for rows.Next() {
 		var page scrapper.Page
 
-		if err = rows.Scan(&page.URL, &page.IsDead); err != nil {
+		if err = rows.Scan(&page.URL, &page.StatusCode); err != nil {
 			return nil, fmt.Errorf("cant add in slice page from db: %w", err)
 		}
 		Pages = append(Pages, page)

@@ -54,7 +54,7 @@ func main() {
 
 	visited[userURL] = true
 
-	for w := 1; w <= 50; w++ {
+	for w := 1; w <= 30; w++ {
 		go worker(&mu, w, jobs, results, s, rateLimiter)
 	}
 
@@ -119,13 +119,16 @@ func worker(m *sync.Mutex, id int, jobs <-chan string, results chan<- []string, 
 		if err := rL.Limiter.Wait(context.Background()); err != nil {
 			return
 		}
-		foundLinks, err := scrapper.GetLinks(link)
+		foundLinks, statusCode, err := scrapper.GetLinks(link)
+		if statusCode == 429 {
+			foundLinks, statusCode, err = scrapper.TryAgainExp(link, 6, scrapper.GetLinks)
+		}
 
 		if err != nil {
 			fmt.Printf("[Worker %d] Ошибка на %s: %v\n", id, link, err)
 			m.Lock()
 
-			if err = db.Save(scrapper.Page{URL: link, IsDead: true}); err != nil {
+			if err = db.Save(scrapper.Page{URL: link, StatusCode: statusCode}); err != nil {
 				fmt.Printf("database save error: %v", err)
 			}
 			m.Unlock()
@@ -134,7 +137,7 @@ func worker(m *sync.Mutex, id int, jobs <-chan string, results chan<- []string, 
 			continue
 		}
 		m.Lock()
-		if err = db.Save(scrapper.Page{URL: link, IsDead: false}); err != nil {
+		if err = db.Save(scrapper.Page{URL: link, StatusCode: statusCode}); err != nil {
 			fmt.Printf("database save error: %v", err)
 		}
 		m.Unlock()
@@ -182,13 +185,13 @@ func writeToCsv(db *storage.Storage, fileName string) error {
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
 
-	headerRow := []string{"Link;", "IsDead"}
+	headerRow := []string{"Link;", "StatusCode"}
 	if err = writer.Write(headerRow); err != nil {
 		return fmt.Errorf("cant write header row in a csv: %w", err)
 	}
 
 	for _, res := range results {
-		row := []string{res.URL + ";", strconv.FormatBool(res.IsDead)}
+		row := []string{res.URL + ";", strconv.Itoa(res.StatusCode)}
 
 		err := writer.Write(row)
 		if err != nil {
