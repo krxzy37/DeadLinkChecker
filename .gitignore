@@ -1,10 +1,13 @@
 .env
 *.local
+*.sql
 
-.data/
+.vscode/
+data/
 .idea/
 *.iml
 DeadlinkChecker.iml
+
 
 csv/
 db_data/
