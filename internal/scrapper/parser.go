@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"golang.org/x/time/rate"
 
@@ -33,7 +34,9 @@ type Page struct {
 func GetLinks(targetURL string) ([]string, error) {
 
 	var results []string
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: 15 * time.Second,
+	}
 
 	base, err := url.Parse(targetURL)
 	if err != nil {

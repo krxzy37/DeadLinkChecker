@@ -29,7 +29,7 @@ func New(path string) (*Storage, error) {
 
 func (s *Storage) Save(p scrapper.Page) error {
 
-	q := `INSERT INTO pages (url, isDead) VALUES (?, ?)`
+	q := `INSERT INTO pages (url, is_dead) VALUES (?, ?)`
 
 	if _, err := s.db.Exec(q, p.URL, p.IsDead); err != nil {
 		return fmt.Errorf("cant save page: %w", err)

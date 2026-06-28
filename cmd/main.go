@@ -25,7 +25,6 @@ var finalData []scrapper.Page
 
 func main() {
 
-	ctx := context.Background()
 	var mu sync.Mutex
 	rateLimiter := scrapper.NewRateLimiter()
 
@@ -56,7 +55,7 @@ func main() {
 	visited[userURL] = true
 
 	for w := 1; w <= 50; w++ {
-		go worker(ctx, &mu, w, jobs, results, s, rateLimiter)
+		go worker(&mu, w, jobs, results, s, rateLimiter)
 	}
 
 	parsedStart, err := url.Parse(userURL)
@@ -81,7 +80,7 @@ func main() {
 
 				parsedLink, err := url.Parse(link)
 				if err != nil {
-					fmt.Println("code 404", link)
+					fmt.Println("Invalid url", link)
 					continue
 				}
 				if parsedLink.Host == targetHost {
@@ -94,6 +93,7 @@ func main() {
 			}
 		}
 	}
+	close(jobs)
 
 	err = writeToCsv(s, userURL)
 	if err != nil {
@@ -101,17 +101,22 @@ func main() {
 		return
 	}
 
+	finalPages, err := s.GetPages(userURL)
+	if err != nil {
+		fmt.Printf("GetPages error in main: %v", err)
+	}
+
 	fmt.Println("Работа программы завершена.....")
-	fmt.Printf("Всего найдено уникальных страниц: %d\n", len(visited))
+	fmt.Printf("Всего найдено уникальных страниц: %d\n", len(finalPages))
 
 }
-func worker(ctx context.Context, m *sync.Mutex, id int, jobs <-chan string, results chan<- []string, db *storage.Storage, rL *scrapper.RateLimiter) {
+func worker(m *sync.Mutex, id int, jobs <-chan string, results chan<- []string, db *storage.Storage, rL *scrapper.RateLimiter) {
 
 	for link := range jobs {
 
 		fmt.Printf("[Worker %d] Сканирую: %s\n", id, link)
 
-		if err := rL.Limiter.Wait(ctx); err != nil {
+		if err := rL.Limiter.Wait(context.Background()); err != nil {
 			return
 		}
 		foundLinks, err := scrapper.GetLinks(link)
@@ -120,14 +125,18 @@ func worker(ctx context.Context, m *sync.Mutex, id int, jobs <-chan string, resu
 			fmt.Printf("[Worker %d] Ошибка на %s: %v\n", id, link, err)
 			m.Lock()
 
-			db.Save(scrapper.Page{URL: link, IsDead: true})
+			if err = db.Save(scrapper.Page{URL: link, IsDead: true}); err != nil {
+				fmt.Printf("database save error: %v", err)
+			}
 			m.Unlock()
 			results <- foundLinks
 
 			continue
 		}
 		m.Lock()
-		db.Save(scrapper.Page{URL: link, IsDead: false})
+		if err = db.Save(scrapper.Page{URL: link, IsDead: false}); err != nil {
+			fmt.Printf("database save error: %v", err)
+		}
 		m.Unlock()
 
 		results <- foundLinks
