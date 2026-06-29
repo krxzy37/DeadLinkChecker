@@ -3,7 +3,6 @@ package main
 import (
 	"DeadLinkChecker/internal/scrapper"
 	"DeadLinkChecker/internal/storage"
-	"context"
 
 	"path/filepath"
 	"sync"
@@ -54,7 +53,7 @@ func main() {
 
 	visited[userURL] = true
 
-	for w := 1; w <= 30; w++ {
+	for w := 1; w <= 50; w++ {
 		go worker(&mu, w, jobs, results, s, rateLimiter)
 	}
 
@@ -116,13 +115,7 @@ func worker(m *sync.Mutex, id int, jobs <-chan string, results chan<- []string, 
 
 		fmt.Printf("[Worker %d] Сканирую: %s\n", id, link)
 
-		if err := rL.Limiter.Wait(context.Background()); err != nil {
-			return
-		}
-		foundLinks, statusCode, err := scrapper.GetLinks(link)
-		if statusCode == 429 {
-			foundLinks, statusCode, err = scrapper.TryAgainExp(link, 6, scrapper.GetLinks)
-		}
+		foundLinks, statusCode, err := scrapper.FetchWithRetry(rL, link, 6, scrapper.GetLinks)
 
 		if err != nil {
 			fmt.Printf("[Worker %d] Ошибка на %s: %v\n", id, link, err)

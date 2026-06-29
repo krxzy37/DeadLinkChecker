@@ -1,6 +1,7 @@
 package scrapper
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -31,20 +32,20 @@ type Page struct {
 	StatusCode int
 }
 
-func GetLinks(targetURL string) ([]string, int, error) {
+func GetLinks(targetURL string) ([]string, int, time.Duration, error) {
 
 	var results []string
 	client := &http.Client{
-		Timeout: 45 * time.Second,
+		Timeout: 60 * time.Second,
 	}
 
 	base, err := url.Parse(targetURL)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, 0, err
 	}
 	req, err := http.NewRequest("GET", targetURL, nil)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, 0, err
 	}
 
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
@@ -53,7 +54,7 @@ func GetLinks(targetURL string) ([]string, int, error) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, 0, err
 	}
 	defer resp.Body.Close()
 
@@ -61,13 +62,16 @@ func GetLinks(targetURL string) ([]string, int, error) {
 
 		switch {
 		case resp.StatusCode == 429:
-			return nil, 429, nil
+
+			//fmt.Println(resp.Header)
+
+			return nil, 429, 0, nil
 		case resp.StatusCode == 404:
 			fmt.Println("Битая ссылка -> ", targetURL)
-			return nil, 404, fmt.Errorf("dead link, status code 404: %w", err)
+			return nil, 404, 0, nil
 		default:
-			fmt.Printf("Unknown error on link -> %v", targetURL)
-			return nil, resp.StatusCode, fmt.Errorf("status code %d, error: %w", resp.StatusCode, err)
+			fmt.Printf("Unknown responce on link -> %v", targetURL)
+			return nil, resp.StatusCode, 0, nil
 		}
 
 	}
@@ -75,12 +79,12 @@ func GetLinks(targetURL string) ([]string, int, error) {
 	contentType := resp.Header.Get("Content-Type")
 
 	if !strings.Contains(contentType, "text/html") {
-		return nil, 0, fmt.Errorf("Response dont contains a text or html: %w", err)
+		return nil, resp.StatusCode, 0, nil
 	}
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, 0, fmt.Errorf("goquerry error: %w", err)
 	}
 
 	doc.Find("a").Each(func(i int, s *goquery.Selection) {
@@ -114,7 +118,7 @@ func GetLinks(targetURL string) ([]string, int, error) {
 		}
 	})
 
-	return results, 200, nil
+	return results, resp.StatusCode, 0, nil
 }
 
 func shouldSkipExtension(ext string) bool {
@@ -165,25 +169,33 @@ func isTooDeep(link string) bool {
 	return false
 }
 
-func TryAgainExp(targetLink string, maxRetries int, o func(string) ([]string, int, error)) ([]string, int, error) {
+func FetchWithRetry(rL *RateLimiter, targetLink string, maxRetries int, o func(string) ([]string, int, time.Duration, error)) ([]string, int, error) {
 
+	var lastStatus int
 	delay := 2 * time.Second
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
 
-		links, statusCode, err := o(targetLink)
-		if err == nil {
+		rL.Limiter.Wait(context.Background())
+		links, statusCode, resetTime, err := o(targetLink)
+		fmt.Println(resetTime)
+		if statusCode == 200 {
 			return links, statusCode, nil
+		}
+		if statusCode >= 400 && statusCode < 500 && statusCode != 429 {
+			return nil, statusCode, nil
 		}
 
 		if attempt == maxRetries-1 {
-			return nil, 504, fmt.Errorf("out of tries: %w", err)
+			return nil, statusCode, fmt.Errorf("out of tries: %w", err)
 		}
 
 		time.Sleep(delay)
 		delay *= 2
 
+		lastStatus = statusCode
+
 	}
 
-	return nil, 404, fmt.Errorf("Out of tries: (%d)", maxRetries)
+	return nil, lastStatus, fmt.Errorf("Out of tries: (%d)", maxRetries)
 }
