@@ -1,8 +1,10 @@
 package scrapper
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -32,7 +34,7 @@ type Page struct {
 	StatusCode int
 }
 
-func GetLinks(targetURL string) ([]string, int, time.Duration, error) {
+func GetLinks(targetURL string) ([]string, int, error) {
 
 	var results []string
 	client := &http.Client{
@@ -41,11 +43,11 @@ func GetLinks(targetURL string) ([]string, int, time.Duration, error) {
 
 	base, err := url.Parse(targetURL)
 	if err != nil {
-		return nil, 0, 0, err
+		return nil, 0, err
 	}
 	req, err := http.NewRequest("GET", targetURL, nil)
 	if err != nil {
-		return nil, 0, 0, err
+		return nil, 0, err
 	}
 
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
@@ -54,7 +56,7 @@ func GetLinks(targetURL string) ([]string, int, time.Duration, error) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, 0, 0, err
+		return nil, 0, err
 	}
 	defer resp.Body.Close()
 
@@ -63,15 +65,29 @@ func GetLinks(targetURL string) ([]string, int, time.Duration, error) {
 		switch {
 		case resp.StatusCode == 429:
 
-			//fmt.Println(resp.Header)
+			if strings.EqualFold(resp.Header.Get("Server"), "cloudflare") {
+				bodyBytes, err := io.ReadAll(resp.Body)
+				if err == nil {
+					bodyText := string(bodyBytes)
 
-			return nil, 429, 0, nil
+					resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+					if strings.Contains(bodyText, "cf-challenge") ||
+						strings.Contains(bodyText, "challenge-platform") ||
+						strings.Contains(bodyText, "Just a moment") {
+
+						return nil, 429, fmt.Errorf("Cloudflare challenge received: %w", err)
+					}
+				}
+			}
+
+			return nil, 429, nil
 		case resp.StatusCode == 404:
 			fmt.Println("Битая ссылка -> ", targetURL)
-			return nil, 404, 0, nil
+			return nil, 404, nil
 		default:
 			fmt.Printf("Unknown responce on link -> %v", targetURL)
-			return nil, resp.StatusCode, 0, nil
+			return nil, resp.StatusCode, nil
 		}
 
 	}
@@ -79,12 +95,12 @@ func GetLinks(targetURL string) ([]string, int, time.Duration, error) {
 	contentType := resp.Header.Get("Content-Type")
 
 	if !strings.Contains(contentType, "text/html") {
-		return nil, resp.StatusCode, 0, nil
+		return nil, resp.StatusCode, nil
 	}
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		return nil, 0, 0, fmt.Errorf("goquerry error: %w", err)
+		return nil, 0, fmt.Errorf("goquerry error: %w", err)
 	}
 
 	doc.Find("a").Each(func(i int, s *goquery.Selection) {
@@ -118,7 +134,7 @@ func GetLinks(targetURL string) ([]string, int, time.Duration, error) {
 		}
 	})
 
-	return results, resp.StatusCode, 0, nil
+	return results, resp.StatusCode, nil
 }
 
 func shouldSkipExtension(ext string) bool {
@@ -169,7 +185,7 @@ func isTooDeep(link string) bool {
 	return false
 }
 
-func FetchWithRetry(rL *RateLimiter, targetLink string, maxRetries int, o func(string) ([]string, int, time.Duration, error)) ([]string, int, error) {
+func FetchWithRetry(rL *RateLimiter, targetLink string, maxRetries int, o func(string) ([]string, int, error)) ([]string, int, error) {
 
 	var lastStatus int
 	delay := 2 * time.Second
@@ -177,8 +193,8 @@ func FetchWithRetry(rL *RateLimiter, targetLink string, maxRetries int, o func(s
 	for attempt := 0; attempt < maxRetries; attempt++ {
 
 		rL.Limiter.Wait(context.Background())
-		links, statusCode, resetTime, err := o(targetLink)
-		fmt.Println(resetTime)
+		links, statusCode, err := o(targetLink)
+
 		if statusCode == 200 {
 			return links, statusCode, nil
 		}
